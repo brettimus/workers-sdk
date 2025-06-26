@@ -9,6 +9,7 @@ export default defineConfig([
 		outDir: "dist",
 		tsconfig: "tsconfig.plugin.json",
 		noExternal: ["@cloudflare/containers-shared"],
+		external: ["undici"],
 	},
 	{
 		entry: [
