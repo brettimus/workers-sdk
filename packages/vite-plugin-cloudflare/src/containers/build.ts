@@ -1,6 +1,4 @@
-import assert from "node:assert";
 import { randomUUID } from "node:crypto";
-import * as path from "node:path";
 import {
 	cleanupContainers,
 	getDevContainerImageName,
@@ -8,7 +6,6 @@ import {
 } from "@cloudflare/containers-shared";
 import { getDockerPath } from "../wrangler-internals";
 import type { ContainerDevOptions } from "@cloudflare/containers-shared";
-import type { ResolvedConfig } from "vite";
 
 // Container configuration as defined in Wrangler
 export interface ContainerApp {
