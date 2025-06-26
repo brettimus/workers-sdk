@@ -1,0 +1,38 @@
+{
+	"name": "test-worker",
+	"main": "src/index.ts",
+	"compatibility_date": "2024-04-03",
+	"containers": [
+		{
+			"image": "./api/Dockerfile",
+			"class_name": "ApiContainer",
+			"instance_type": "dev",
+			"image_vars": {
+				"NODE_ENV": "development",
+				"PORT": "8080"
+			}
+		},
+		{
+			"image": "./database/Dockerfile",
+			"class_name": "DatabaseContainer",
+			"instance_type": "basic",
+			"image_build_context": "./database",
+			"max_instances": 2,
+			"scheduling_policy": "regional",
+			"rollout_kind": "full_auto",
+			"rollout_step_percentage": 50
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"class_name": "ApiContainer",
+				"name": "API_CONTAINER"
+			},
+			{
+				"class_name": "DatabaseContainer",
+				"name": "DB_CONTAINER"
+			}
+		]
+	}
+}

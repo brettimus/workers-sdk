@@ -1,0 +1,19 @@
+{
+	"name": "test-worker",
+	"main": "src/index.ts",
+	"compatibility_date": "2024-04-03",
+	"containers": [
+		{
+			// Missing class_name (required)
+			"image": "./api/Dockerfile",
+			"instance_type": "invalid_type"
+		},
+		{
+			"class_name": "TestContainer2",
+			// Missing image (required)
+			"scheduling_policy": "invalid_policy",
+			"rollout_kind": "invalid_rollout",
+			"rollout_step_percentage": 10  // Below minimum of 25
+		}
+	]
+}

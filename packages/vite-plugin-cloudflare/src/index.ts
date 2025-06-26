@@ -61,6 +61,7 @@ import { cleanUrl, createRequestHandler, getOutputDirectory } from "./utils";
 import { handleWebSocket } from "./websockets";
 import { validateWorkerEnvironmentsResolvedConfigs } from "./worker-environments-validation";
 import { getWarningForWorkersConfigs } from "./workers-configs";
+import { containerPlugin } from "./containers/plugin";
 import type {
 	PluginConfig,
 	ResolvedPluginConfig,
@@ -887,6 +888,12 @@ export function cloudflare(pluginConfig: PluginConfig = {}): vite.Plugin[] {
 				}
 			},
 		},
+		// Container plugin for building and managing Docker containers
+		...(function() {
+			return resolvedPluginConfig?.type === "workers" 
+				? [containerPlugin(resolvedPluginConfig)] 
+				: [];
+		})(),
 	];
 
 	function getWorkerConfig(environmentName: string) {

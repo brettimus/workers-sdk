@@ -42,6 +42,7 @@
 		"test:watch": "vitest"
 	},
 	"dependencies": {
+		"@cloudflare/containers-shared": "workspace:*",
 		"@cloudflare/unenv-preset": "2.3.3",
 		"@mjackson/node-fetch-server": "^0.6.1",
 		"@rollup/plugin-replace": "^6.0.1",

@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getDevContainerImageName } from "@cloudflare/containers-shared";
 import {
 	getDefaultDevRegistryPath,
 	kCurrentWorker,
@@ -18,6 +19,7 @@ import {
 	unstable_convertConfigBindingsToStartWorkerBindings,
 	unstable_getMiniflareWorkerOptions,
 } from "wrangler";
+import { getContainerBuildId } from "./containers/plugin";
 import { getAssetsConfig } from "./asset-config";
 import {
 	ASSET_WORKER_NAME,
@@ -163,6 +165,25 @@ function getWorkerToWorkflowEntrypointClassNamesMap(
 	return workerToWorkflowEntrypointClassNamesMap;
 }
 
+function getImageNameFromDOClassName(
+	DOClassName: string,
+	config: WorkersResolvedConfig,
+	containerBuildId: string
+): { imageName: string } | undefined {
+	// Find the container configuration for this Durable Object class name
+	for (const [_, workerConfig] of Object.entries(config.workers)) {
+		const container = workerConfig.containers?.find(
+			(c) => c.class_name === DOClassName
+		);
+		if (container) {
+			return {
+				imageName: getDevContainerImageName(container.class_name, containerBuildId),
+			};
+		}
+	}
+	return undefined;
+}
+
 // We want module names to be their absolute path without the leading slash
 // (i.e. the modules root should be the root directory). On Windows, we need
 // paths to include the drive letter (i.e. `C:/a/b/c/index.mjs`).
@@ -232,6 +253,7 @@ const remoteProxySessionsDataMap = new Map<
 	} | null
 >();
 
+
 export async function getDevMiniflareOptions(
 	resolvedPluginConfig: AssetsOnlyResolvedConfig | WorkersResolvedConfig,
 	viteDevServer: vite.ViteDevServer,
@@ -239,6 +261,9 @@ export async function getDevMiniflareOptions(
 ): Promise<MiniflareOptions> {
 	const resolvedViteConfig = viteDevServer.config;
 	const entryWorkerConfig = getEntryWorkerConfig(resolvedPluginConfig);
+
+	// Get container build ID from the container plugin
+	const containerBuildId = getContainerBuildId();
 
 	const assetsConfig = getAssetsConfig(
 		resolvedPluginConfig,
@@ -381,11 +406,18 @@ export async function getDevMiniflareOptions(
 								);
 							}
 
+							// Create config with container build ID for Wrangler's container support
+							const configWithContainers = {
+								...workerConfig,
+								assets: undefined,
+								...(containerBuildId && workerConfig.containers?.length && {
+									containerBuildId,
+									enableContainers: true,
+								}),
+							};
+
 							const miniflareWorkerOptions = unstable_getMiniflareWorkerOptions(
-								{
-									...workerConfig,
-									assets: undefined,
-								},
+								configWithContainers,
 								resolvedPluginConfig.cloudflareEnv,
 								{
 									remoteProxyConnectionString:
