@@ -1,8 +1,7 @@
-import { execFile } from "child_process";
 import { buildImage } from "./build";
 import { isCloudflareRegistryLink } from "./knobs";
 import { dockerLoginManagedRegistry } from "./login";
-import { ContainerDevOptions } from "./types";
+import type { ContainerDevOptions } from "./types";
 import {
 	checkExposedPorts,
 	isDockerfile,

@@ -1,7 +1,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import { fetch, FormData, Headers, RequestInit, Response } from "undici";
+import { fetch, FormData, Headers, Response } from "undici";
+import type { RequestInit } from "undici";
 import { ApiError } from "./ApiError";
 import { CancelablePromise } from "./CancelablePromise";
 import { type OpenAPIConfig } from "./OpenAPI";
@@ -234,7 +235,7 @@ const parseResponseSchemaV4 = <T>(
 			result = {};
 		}
 	} else {
-		result = { error: fetchResult.errors?.[0].message };
+		result = { error: fetchResult.errors?.[0]?.message };
 	}
 	return {
 		url,
