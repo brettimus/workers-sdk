@@ -52,3 +52,5 @@ fixtures/redirected-config-worker-with-environments/build/*
 packages/unenv-preset/src/preset.ts
 
 packages/vite-plugin-cloudflare/playground/**/*.d.ts
+
+.claude
