@@ -2047,6 +2047,9 @@ importers:
 
   packages/vite-plugin-cloudflare:
     dependencies:
+      '@cloudflare/containers-shared':
+        specifier: workspace:*
+        version: link:../containers-shared
       '@cloudflare/unenv-preset':
         specifier: 2.3.3
         version: 2.3.3(unenv@2.0.0-rc.17)(workerd@1.20250617.0)
@@ -2258,6 +2261,22 @@ importers:
       wrangler:
         specifier: workspace:*
         version: link:../../../wrangler
+
+  packages/vite-plugin-cloudflare/playground/containers:
+    dependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20250617.0
+        version: 4.20250617.0
+    devDependencies:
+      '@cloudflare/vite-plugin':
+        specifier: workspace:*
+        version: link:../..
+      typescript:
+        specifier: catalog:default
+        version: 5.7.3
+      vite:
+        specifier: catalog:vite-plugin
+        version: 6.1.0(@types/node@20.17.32)(jiti@2.4.2)(lightningcss@1.29.2)
 
   packages/vite-plugin-cloudflare/playground/custom-build-app:
     devDependencies:
