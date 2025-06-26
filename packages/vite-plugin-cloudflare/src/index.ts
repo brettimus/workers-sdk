@@ -91,7 +91,7 @@ export function cloudflare(pluginConfig: PluginConfig = {}): vite.Plugin[] {
 	const additionalModulePaths = new Set<string>();
 	const nodeJsCompatWarningsMap = new Map<WorkerConfig, NodeJsCompatWarnings>();
 
-	return [
+	const plugins: vite.Plugin[] = [
 		{
 			name: "vite-plugin-cloudflare",
 			// This only applies to this plugin so is safe to use while other plugins migrate to the Environment API
@@ -888,13 +888,45 @@ export function cloudflare(pluginConfig: PluginConfig = {}): vite.Plugin[] {
 				}
 			},
 		},
-		// Container plugin for building and managing Docker containers
-		...(function () {
-			return resolvedPluginConfig?.type === "workers"
-				? [containerPlugin(resolvedPluginConfig)]
-				: [];
-		})(),
+		// Plugin that builds and manages Docker containers
+		{
+			name: "vite-plugin-cloudflare:container",
+			applyToEnvironment(environment) {
+				// Only apply to worker environments that support containers
+				return getWorkerConfig(environment.name) !== undefined;
+			},
+			apply() {
+				// Only apply this plugin if we have a workers configuration
+				return resolvedPluginConfig?.type === "workers";
+			},
+			config(userConfig, env) {
+				if (resolvedPluginConfig?.type === "workers") {
+					const containerPluginInstance = containerPlugin(resolvedPluginConfig);
+					if (typeof containerPluginInstance.config === 'function') {
+						return containerPluginInstance.config.call(this, userConfig, env);
+					}
+				}
+			},
+			configResolved(config) {
+				if (resolvedPluginConfig?.type === "workers") {
+					const containerPluginInstance = containerPlugin(resolvedPluginConfig);
+					if (typeof containerPluginInstance.configResolved === 'function') {
+						return containerPluginInstance.configResolved.call(this, config);
+					}
+				}
+			},
+			buildStart(opts) {
+				if (resolvedPluginConfig?.type === "workers") {
+					const containerPluginInstance = containerPlugin(resolvedPluginConfig);
+					if (typeof containerPluginInstance.buildStart === 'function') {
+						return containerPluginInstance.buildStart.call(this, opts);
+					}
+				}
+			},
+		},
 	];
+
+	return plugins;
 
 	function getWorkerConfig(environmentName: string) {
 		return resolvedPluginConfig.type === "workers"
