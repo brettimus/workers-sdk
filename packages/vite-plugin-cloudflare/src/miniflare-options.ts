@@ -113,20 +113,20 @@ function getWorkerToDurableObjectClassNamesMap(
 
 				classNames.add(value);
 			} else if (typeof value === "object") {
-				if (value.scriptName) {
+				if ((value as any).scriptName) {
 					const classNames = workerToDurableObjectClassNamesMap.get(
 						value.scriptName
 					);
 					assert(classNames, missingWorkerErrorMessage(value.scriptName));
 
-					classNames.add(value.className);
+					classNames.add((value as any).className);
 				} else {
 					const classNames = workerToDurableObjectClassNamesMap.get(
 						worker.name
 					);
 					assert(classNames, missingWorkerErrorMessage(worker.name));
 
-					classNames.add(value.className);
+					classNames.add((value as any).className);
 				}
 			}
 		}
@@ -144,20 +144,20 @@ function getWorkerToWorkflowEntrypointClassNamesMap(
 
 	for (const worker of workers) {
 		for (const value of Object.values(worker.workflows ?? {})) {
-			if (value.scriptName) {
+			if ((value as any).scriptName) {
 				const classNames = workerToWorkflowEntrypointClassNamesMap.get(
-					value.scriptName
+					(value as any).scriptName
 				);
-				assert(classNames, missingWorkerErrorMessage(value.scriptName));
+				assert(classNames, missingWorkerErrorMessage((value as any).scriptName));
 
-				classNames.add(value.className);
+				classNames.add((value as any).className);
 			} else {
 				const classNames = workerToWorkflowEntrypointClassNamesMap.get(
 					worker.name
 				);
 				assert(classNames, missingWorkerErrorMessage(worker.name));
 
-				classNames.add(value.className);
+				classNames.add((value as any).className);
 			}
 		}
 	}
@@ -165,24 +165,6 @@ function getWorkerToWorkflowEntrypointClassNamesMap(
 	return workerToWorkflowEntrypointClassNamesMap;
 }
 
-function getImageNameFromDOClassName(
-	DOClassName: string,
-	config: WorkersResolvedConfig,
-	containerBuildId: string
-): { imageName: string } | undefined {
-	// Find the container configuration for this Durable Object class name
-	for (const [_, workerConfig] of Object.entries(config.workers)) {
-		const container = workerConfig.containers?.find(
-			(c) => c.class_name === DOClassName
-		);
-		if (container) {
-			return {
-				imageName: getDevContainerImageName(container.class_name, containerBuildId),
-			};
-		}
-	}
-	return undefined;
-}
 
 // We want module names to be their absolute path without the leading slash
 // (i.e. the modules root should be the root directory). On Windows, we need

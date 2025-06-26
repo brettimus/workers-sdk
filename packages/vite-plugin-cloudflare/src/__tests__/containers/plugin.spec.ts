@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { describe, expect, test, vi, beforeEach, type MockedFunction } from "vitest";
+import { describe, expect, test, vi, beforeEach } from "vitest";
 import type * as vite from "vite";
 import {
 	containerPlugin,
@@ -28,6 +28,15 @@ vi.mock("picocolors", () => ({
 describe("containers/plugin", () => {
 	let mockServer: Partial<vite.ViteDevServer>;
 	let mockConfig: WorkersResolvedConfig;
+
+	// Helper function to call plugin hooks safely
+	const callHook = async (hook: any, context: any, ...args: any[]) => {
+		if (typeof hook === 'function') {
+			return await hook.call(context, ...args);
+		} else if (hook && 'handler' in hook) {
+			return await hook.handler.call(context, ...args);
+		}
+	};
 
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -75,13 +84,11 @@ describe("containers/plugin", () => {
 		});
 
 		test("should handle config with no containers", async () => {
+			const { containers, ...workerWithoutContainers } = mockConfig.workers.testWorker!;
 			const configWithoutContainers = {
 				...mockConfig,
 				workers: {
-					testWorker: {
-						...mockConfig.workers.testWorker,
-						containers: undefined,
-					},
+					testWorker: workerWithoutContainers,
 				},
 			};
 
@@ -93,7 +100,7 @@ describe("containers/plugin", () => {
 			} as any;
 
 			// Should not throw or call any build functions
-			await plugin.buildStart?.call(mockContext);
+			await callHook(plugin.buildStart, mockContext);
 			
 			const { buildContainersForDev } = await import("../../containers/build");
 			expect(buildContainersForDev).not.toHaveBeenCalled();
@@ -110,13 +117,13 @@ describe("containers/plugin", () => {
 			]);
 
 			const plugin = containerPlugin(mockConfig);
-			plugin.configureServer?.(mockServer as vite.ViteDevServer);
+			await callHook(plugin.configureServer, null, mockServer as vite.ViteDevServer);
 
 			const mockContext = {
 				error: vi.fn(),
 			} as any;
 
-			await plugin.buildStart?.call(mockContext);
+			await callHook(plugin.buildStart, mockContext);
 
 			expect(validateContainerConfig).toHaveBeenCalledWith([
 				{
@@ -146,13 +153,13 @@ describe("containers/plugin", () => {
 			});
 
 			const plugin = containerPlugin(mockConfig);
-			plugin.configureServer?.(mockServer as vite.ViteDevServer);
+			await callHook(plugin.configureServer, null, mockServer as vite.ViteDevServer);
 
 			const mockContext = {
 				error: vi.fn(),
 			} as any;
 
-			await plugin.buildStart?.call(mockContext);
+			await callHook(plugin.buildStart, mockContext);
 
 			expect(mockContext.error).toHaveBeenCalledWith(
 				"Container configuration error: Invalid container configuration"
@@ -172,63 +179,63 @@ describe("containers/plugin", () => {
 			]);
 
 			const plugin = containerPlugin(mockConfig);
-			plugin.configureServer?.(mockServer as vite.ViteDevServer);
+			await callHook(plugin.configureServer, null, mockServer as vite.ViteDevServer);
 
 			const mockContext = {
 				error: vi.fn(),
 			} as any;
 
-			await plugin.buildStart?.call(mockContext);
+			await callHook(plugin.buildStart, mockContext);
 
 			expect(mockServer.config?.logger.error).toHaveBeenCalledWith(
 				expect.stringContaining("Container build failed for")
 			);
 		});
 
-		test("should detect Dockerfile changes in hotUpdate", () => {
+		test("should detect Dockerfile changes in hotUpdate", async () => {
 			const plugin = containerPlugin(mockConfig);
-			plugin.configureServer?.(mockServer as vite.ViteDevServer);
+			await callHook(plugin.configureServer, null, mockServer as vite.ViteDevServer);
 
 			// Initialize container state by calling buildStart
 			const mockContext = { error: vi.fn() } as any;
-			plugin.buildStart?.call(mockContext);
+			await callHook(plugin.buildStart, mockContext);
 
 			const mockHotUpdateContext = {
 				file: path.resolve("/test/root/Dockerfile"),
 				server: mockServer,
 			} as any;
 
-			const result = plugin.hotUpdate?.(mockHotUpdateContext);
+			const result = await callHook(plugin.hotUpdate, null, mockHotUpdateContext);
 
 			// Should return empty array to prevent normal hot reload
 			expect(result).toEqual([]);
 		});
 
-		test("should ignore non-container files in hotUpdate", () => {
+		test("should ignore non-container files in hotUpdate", async () => {
 			const plugin = containerPlugin(mockConfig);
-			plugin.configureServer?.(mockServer as vite.ViteDevServer);
+			await callHook(plugin.configureServer, null, mockServer as vite.ViteDevServer);
 
 			// Initialize container state
 			const mockContext = { error: vi.fn() } as any;
-			plugin.buildStart?.call(mockContext);
+			await callHook(plugin.buildStart, mockContext);
 
 			const mockHotUpdateContext = {
-				file: "/test/root/src/index.ts",
+				file: "/some/other/path/unrelated.ts",
 				server: mockServer,
 			} as any;
 
-			const result = plugin.hotUpdate?.(mockHotUpdateContext);
+			const result = await callHook(plugin.hotUpdate, null, mockHotUpdateContext);
 
 			// Should return undefined to allow normal hot reload
 			expect(result).toBeUndefined();
 		});
 
-		test("should detect files in build context", () => {
+		test("should detect files in build context", async () => {
 			const configWithBuildContext = {
 				...mockConfig,
 				workers: {
 					testWorker: {
-						...mockConfig.workers.testWorker,
+						...mockConfig.workers.testWorker!,
 						containers: [
 							{
 								class_name: "TestContainer",
@@ -238,73 +245,84 @@ describe("containers/plugin", () => {
 						],
 					},
 				},
-			};
+			} as WorkersResolvedConfig;
 
 			const plugin = containerPlugin(configWithBuildContext);
-			plugin.configureServer?.(mockServer as vite.ViteDevServer);
+			await callHook(plugin.configureServer, null, mockServer as vite.ViteDevServer);
 
 			// Initialize container state
 			const mockContext = { error: vi.fn() } as any;
-			plugin.buildStart?.call(mockContext);
+			await callHook(plugin.buildStart, mockContext);
 
 			const mockHotUpdateContext = {
 				file: path.resolve("/test/root/api/package.json"),
 				server: mockServer,
 			} as any;
 
-			const result = plugin.hotUpdate?.(mockHotUpdateContext);
+			const result = await callHook(plugin.hotUpdate, null, mockHotUpdateContext);
 
 			// Should return empty array for files in build context
 			expect(result).toEqual([]);
 		});
 
-		test("should ignore node_modules in build context", () => {
+		test("should ignore node_modules in build context", async () => {
 			const plugin = containerPlugin(mockConfig);
-			plugin.configureServer?.(mockServer as vite.ViteDevServer);
+			await callHook(plugin.configureServer, null, mockServer as vite.ViteDevServer);
 
 			// Initialize container state
 			const mockContext = { error: vi.fn() } as any;
-			plugin.buildStart?.call(mockContext);
+			await callHook(plugin.buildStart, mockContext);
 
 			const mockHotUpdateContext = {
 				file: path.resolve("/test/root/node_modules/some-package/index.js"),
 				server: mockServer,
 			} as any;
 
-			const result = plugin.hotUpdate?.(mockHotUpdateContext);
+			const result = await callHook(plugin.hotUpdate, null, mockHotUpdateContext);
 
 			// Should return undefined for ignored files
 			expect(result).toBeUndefined();
 		});
 
 		test("should cleanup containers on closeBundle", async () => {
-			const { cleanupContainerImages } = await import("../../containers/build");
+			const { cleanupContainerImages, buildContainersForDev } = await import("../../containers/build");
+			
+			// Mock buildContainersForDev to return successful results with image tags
+			vi.mocked(buildContainersForDev).mockResolvedValue([
+				{ success: true, imageTag: "cloudflare-dev/testcontainer:build-id", className: "TestContainer" }
+			]);
 
 			const plugin = containerPlugin(mockConfig);
-			plugin.configureServer?.(mockServer as vite.ViteDevServer);
+			await callHook(plugin.configureServer, null, mockServer as vite.ViteDevServer);
 
 			// Initialize container state with some images
 			const mockContext = { error: vi.fn() } as any;
-			await plugin.buildStart?.call(mockContext);
+			await callHook(plugin.buildStart, mockContext);
 
-			await plugin.closeBundle?.call(mockContext);
+			await callHook(plugin.closeBundle, mockContext);
 
 			expect(cleanupContainerImages).toHaveBeenCalled();
 		});
 
 		test("should handle cleanup failures gracefully", async () => {
-			const { cleanupContainerImages } = await import("../../containers/build");
+			const { cleanupContainerImages, buildContainersForDev } = await import("../../containers/build");
+			
+			// Mock buildContainersForDev to return successful results with image tags
+			vi.mocked(buildContainersForDev).mockResolvedValue([
+				{ success: true, imageTag: "cloudflare-dev/testcontainer:build-id", className: "TestContainer" }
+			]);
+			
 			vi.mocked(cleanupContainerImages).mockRejectedValue(new Error("Cleanup failed"));
 
 			const plugin = containerPlugin(mockConfig);
-			plugin.configureServer?.(mockServer as vite.ViteDevServer);
+			await callHook(plugin.configureServer, null, mockServer as vite.ViteDevServer);
 
 			// Initialize container state
 			const mockContext = { error: vi.fn() } as any;
-			await plugin.buildStart?.call(mockContext);
+			await callHook(plugin.buildStart, mockContext);
 
 			// Should not throw
-			await plugin.closeBundle?.call(mockContext);
+			await callHook(plugin.closeBundle, mockContext);
 
 			expect(mockServer.config?.logger.warn).toHaveBeenCalledWith(
 				expect.stringContaining("Failed to clean up container images")
@@ -320,10 +338,10 @@ describe("containers/plugin", () => {
 
 		test("should return build ID after plugin initialization", async () => {
 			const plugin = containerPlugin(mockConfig);
-			plugin.configureServer?.(mockServer as vite.ViteDevServer);
+			await callHook(plugin.configureServer, null, mockServer as vite.ViteDevServer);
 
 			const mockContext = { error: vi.fn() } as any;
-			await plugin.buildStart?.call(mockContext);
+			await callHook(plugin.buildStart, mockContext);
 
 			expect(getContainerBuildId()).toBe("mock-build-id");
 		});
@@ -332,10 +350,10 @@ describe("containers/plugin", () => {
 	describe("resetContainerState", () => {
 		test("should reset container state", async () => {
 			const plugin = containerPlugin(mockConfig);
-			plugin.configureServer?.(mockServer as vite.ViteDevServer);
+			await callHook(plugin.configureServer, null, mockServer as vite.ViteDevServer);
 
 			const mockContext = { error: vi.fn() } as any;
-			await plugin.buildStart?.call(mockContext);
+			await callHook(plugin.buildStart, mockContext);
 
 			expect(getContainerBuildId()).toBe("mock-build-id");
 
@@ -345,12 +363,12 @@ describe("containers/plugin", () => {
 	});
 
 	describe("container file detection", () => {
-		test("should detect dockerfile with absolute path", () => {
+		test("should detect dockerfile with absolute path", async () => {
 			const configWithAbsolutePath = {
 				...mockConfig,
 				workers: {
 					testWorker: {
-						...mockConfig.workers.testWorker,
+						...mockConfig.workers.testWorker!,
 						containers: [
 							{
 								class_name: "TestContainer",
@@ -359,29 +377,29 @@ describe("containers/plugin", () => {
 						],
 					},
 				},
-			};
+			} as WorkersResolvedConfig;
 
 			const plugin = containerPlugin(configWithAbsolutePath);
-			plugin.configureServer?.(mockServer as vite.ViteDevServer);
+			await callHook(plugin.configureServer, null, mockServer as vite.ViteDevServer);
 
 			const mockContext = { error: vi.fn() } as any;
-			plugin.buildStart?.call(mockContext);
+			await callHook(plugin.buildStart, mockContext);
 
 			const mockHotUpdateContext = {
 				file: "/absolute/path/to/Dockerfile",
 				server: mockServer,
 			} as any;
 
-			const result = plugin.hotUpdate?.(mockHotUpdateContext);
+			const result = await callHook(plugin.hotUpdate, null, mockHotUpdateContext);
 			expect(result).toEqual([]);
 		});
 
-		test("should ignore registry URLs", () => {
+		test("should ignore registry URLs", async () => {
 			const configWithRegistryUrl = {
 				...mockConfig,
 				workers: {
 					testWorker: {
-						...mockConfig.workers.testWorker,
+						...mockConfig.workers.testWorker!,
 						containers: [
 							{
 								class_name: "TestContainer",
@@ -390,20 +408,20 @@ describe("containers/plugin", () => {
 						],
 					},
 				},
-			};
+			} as WorkersResolvedConfig;
 
 			const plugin = containerPlugin(configWithRegistryUrl);
-			plugin.configureServer?.(mockServer as vite.ViteDevServer);
+			await callHook(plugin.configureServer, null, mockServer as vite.ViteDevServer);
 
 			const mockContext = { error: vi.fn() } as any;
-			plugin.buildStart?.call(mockContext);
+			await callHook(plugin.buildStart, mockContext);
 
 			const mockHotUpdateContext = {
 				file: "/test/root/Dockerfile",
 				server: mockServer,
 			} as any;
 
-			const result = plugin.hotUpdate?.(mockHotUpdateContext);
+			const result = await callHook(plugin.hotUpdate, null, mockHotUpdateContext);
 			// Should not detect this as a container file since image is a URL
 			expect(result).toBeUndefined();
 		});

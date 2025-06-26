@@ -19,6 +19,7 @@ export interface ContainerPluginState {
 
 // Global state for container management
 let containerState: ContainerPluginState | undefined;
+let rebuildTimeout: NodeJS.Timeout | undefined;
 
 /**
  * Vite plugin to handle container building and hot reload for Cloudflare Workers
@@ -27,6 +28,38 @@ export function containerPlugin(
 	resolvedPluginConfig: WorkersResolvedConfig
 ): vite.Plugin {
 	let server: vite.ViteDevServer | undefined;
+	
+	// Debounced rebuild function
+	const debounceMs = 300;
+
+	function handleContainerFileChange(filePath: string) {
+		if (rebuildTimeout) {
+			clearTimeout(rebuildTimeout);
+		}
+
+		rebuildTimeout = setTimeout(async () => {
+			if (!containerState || !server) return;
+
+			// Generate new build ID for hot reload
+			containerState.buildId = generateContainerBuildId();
+
+			server.config.logger.info(colors.dim(`⎔ Container file changed: ${path.relative(server.config.root, filePath)}`));
+			server.config.logger.info(colors.dim("⎔ Rebuilding containers..."));
+
+			// Collect all containers again
+			const allContainers: ContainerApp[] = [];
+			for (const worker of Object.values(resolvedPluginConfig.workers)) {
+				if (worker.containers) {
+					allContainers.push(...worker.containers);
+				}
+			}
+
+			await buildContainers(allContainers, server.config.root);
+
+			// Restart the server to pick up new container images
+			server.restart();
+		}, debounceMs);
+	}
 
 	return {
 		name: "vite-plugin-cloudflare:containers",
@@ -210,39 +243,6 @@ export function containerPlugin(
 		}
 
 		return false;
-	}
-
-	// Debounced rebuild function
-	let rebuildTimeout: NodeJS.Timeout | undefined;
-	const debounceMs = 300;
-
-	function handleContainerFileChange(filePath: string) {
-		if (rebuildTimeout) {
-			clearTimeout(rebuildTimeout);
-		}
-
-		rebuildTimeout = setTimeout(async () => {
-			if (!containerState || !server) return;
-
-			// Generate new build ID for hot reload
-			containerState.buildId = generateContainerBuildId();
-
-			server.config.logger.info(colors.dim(`⎔ Container file changed: ${path.relative(server.config.root, filePath)}`));
-			server.config.logger.info(colors.dim("⎔ Rebuilding containers..."));
-
-			// Collect all containers again
-			const allContainers: ContainerApp[] = [];
-			for (const worker of Object.values(resolvedPluginConfig.workers)) {
-				if (worker.containers) {
-					allContainers.push(...worker.containers);
-				}
-			}
-
-			await buildContainers(allContainers, server.config.root);
-
-			// Restart the server to pick up new container images
-			server.restart();
-		}, debounceMs);
 	}
 }
 

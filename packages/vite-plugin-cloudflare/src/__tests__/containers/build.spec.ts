@@ -19,6 +19,9 @@ vi.mock("wrangler/environment-variables/misc-variables", () => ({
 	getDockerPath: vi.fn(() => "docker"),
 }));
 
+// Import mocked functions
+import { prepareContainerImagesForDev } from "@cloudflare/containers-shared";
+
 describe("containers/build", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -45,7 +48,7 @@ describe("containers/build", () => {
 				{
 					image: "./Dockerfile",
 				},
-			] as ContainerApp[];
+			] as any;
 
 			expect(() => validateContainerConfig(containers)).toThrowError(
 				"Container must specify a class_name"
@@ -72,7 +75,7 @@ describe("containers/build", () => {
 					image: "./Dockerfile",
 					instance_type: "invalid",
 				},
-			] as ContainerApp[];
+			] as any;
 
 			expect(() => validateContainerConfig(containers)).toThrowError(
 				'Invalid instance_type "invalid" for container "TestContainer"'
@@ -86,7 +89,7 @@ describe("containers/build", () => {
 					image: "./Dockerfile",
 					scheduling_policy: "invalid",
 				},
-			] as ContainerApp[];
+			] as any;
 
 			expect(() => validateContainerConfig(containers)).toThrowError(
 				'Invalid scheduling_policy "invalid" for container "TestContainer"'
@@ -100,7 +103,7 @@ describe("containers/build", () => {
 					image: "./Dockerfile",
 					rollout_kind: "invalid",
 				},
-			] as ContainerApp[];
+			] as any;
 
 			expect(() => validateContainerConfig(containers)).toThrowError(
 				'Invalid rollout_kind "invalid" for container "TestContainer"'
@@ -120,7 +123,7 @@ describe("containers/build", () => {
 				'Invalid rollout_step_percentage "10" for container "TestContainer"'
 			);
 
-			containers[0].rollout_step_percentage = 150; // Above maximum of 100
+			containers[0]!.rollout_step_percentage = 150; // Above maximum of 100
 			expect(() => validateContainerConfig(containers)).toThrowError(
 				'Invalid rollout_step_percentage "150" for container "TestContainer"'
 			);
@@ -202,7 +205,6 @@ describe("containers/build", () => {
 	});
 
 	describe("buildContainersForDev", () => {
-		const { prepareContainerImagesForDev } = await import("@cloudflare/containers-shared");
 
 		test("should build containers successfully", async () => {
 			vi.mocked(prepareContainerImagesForDev).mockResolvedValue(undefined);
