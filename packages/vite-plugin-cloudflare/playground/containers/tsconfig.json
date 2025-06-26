@@ -1,6 +1,0 @@
-{
-	"extends": "@cloudflare/workers-tsconfig/base",
-	"compilerOptions": {
-		"types": ["@cloudflare/workers-types", "vite/client"]
-	}
-}
