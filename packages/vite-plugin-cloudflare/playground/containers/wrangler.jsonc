@@ -6,15 +6,15 @@
 		{
 			"image": "./api/Dockerfile",
 			"class_name": "ApiContainer",
-			"instance_type": "dev"
-		}
+			"instance_type": "dev",
+		},
 	],
 	"durable_objects": {
 		"bindings": [
 			{
 				"class_name": "ApiContainer",
-				"name": "API_CONTAINER"
-			}
-		]
-	}
+				"name": "API_CONTAINER",
+			},
+		],
+	},
 }

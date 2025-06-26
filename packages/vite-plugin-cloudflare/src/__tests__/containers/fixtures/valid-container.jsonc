@@ -9,8 +9,8 @@
 			"instance_type": "dev",
 			"image_vars": {
 				"NODE_ENV": "development",
-				"PORT": "8080"
-			}
+				"PORT": "8080",
+			},
 		},
 		{
 			"image": "./database/Dockerfile",
@@ -20,19 +20,19 @@
 			"max_instances": 2,
 			"scheduling_policy": "regional",
 			"rollout_kind": "full_auto",
-			"rollout_step_percentage": 50
-		}
+			"rollout_step_percentage": 50,
+		},
 	],
 	"durable_objects": {
 		"bindings": [
 			{
 				"class_name": "ApiContainer",
-				"name": "API_CONTAINER"
+				"name": "API_CONTAINER",
 			},
 			{
 				"class_name": "DatabaseContainer",
-				"name": "DB_CONTAINER"
-			}
-		]
-	}
+				"name": "DB_CONTAINER",
+			},
+		],
+	},
 }

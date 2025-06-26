@@ -1,8 +1,8 @@
 import { execFile, spawn } from "child_process";
-import type { StdioOptions } from "child_process";
 import { existsSync, statSync } from "fs";
 import { dockerImageInspect } from "./inspect";
 import type { ContainerDevOptions } from "./types";
+import type { StdioOptions } from "child_process";
 
 /** helper for simple docker command call that don't require any io handling */
 export const runDockerCmd = async (

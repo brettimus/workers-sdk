@@ -1,13 +1,13 @@
 import { buildImage } from "./build";
 import { isCloudflareRegistryLink } from "./knobs";
 import { dockerLoginManagedRegistry } from "./login";
-import type { ContainerDevOptions } from "./types";
 import {
 	checkExposedPorts,
 	isDockerfile,
 	runDockerCmd,
 	verifyDockerInstalled,
 } from "./utils";
+import type { ContainerDevOptions } from "./types";
 
 export async function pullImage(
 	dockerPath: string,

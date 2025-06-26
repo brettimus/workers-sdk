@@ -19,7 +19,6 @@ import {
 	unstable_convertConfigBindingsToStartWorkerBindings,
 	unstable_getMiniflareWorkerOptions,
 } from "wrangler";
-import { getContainerBuildId } from "./containers/plugin";
 import { getAssetsConfig } from "./asset-config";
 import {
 	ASSET_WORKER_NAME,
@@ -28,6 +27,7 @@ import {
 	PUBLIC_DIR_PREFIX,
 	ROUTER_WORKER_NAME,
 } from "./constants";
+import { getContainerBuildId } from "./containers/plugin";
 import { additionalModuleRE } from "./shared";
 import { withTrailingSlash } from "./utils";
 import type { CloudflareDevEnvironment } from "./cloudflare-environment";
@@ -45,6 +45,35 @@ import type {
 	SourcelessWorkerOptions,
 	Unstable_Binding,
 } from "wrangler";
+
+// Define proper types for durableObjects and workflows
+type DurableObjectValue =
+	| string
+	| {
+			className: string;
+			scriptName?: string;
+			useSQLite?: boolean;
+			unsafeUniqueKey?: string;
+			unsafePreventEviction?: boolean;
+			remoteProxyConnectionString?: unknown;
+			container?: unknown;
+	  };
+
+type WorkflowValue = {
+	name: string;
+	className: string;
+	scriptName?: string;
+	remoteProxyConnectionString?: unknown;
+};
+
+// Define type for service bindings
+type ServiceBindingValue =
+	| string
+	| {
+			name: string;
+			entrypoint?: string;
+	  }
+	| Function;
 
 function getPersistenceRoot(
 	root: string,
@@ -78,18 +107,21 @@ function getWorkerToWorkerEntrypointNamesMap(
 	for (const worker of workers) {
 		for (const value of Object.values(worker.serviceBindings ?? {})) {
 			if (
+				value !== null &&
 				typeof value === "object" &&
 				"name" in value &&
+				"entrypoint" in value &&
 				value.entrypoint !== undefined &&
 				value.entrypoint !== "default"
 			) {
 				const targetWorkerName =
 					value.name === kCurrentWorker ? worker.name : value.name;
-				const entrypointNames =
-					workerToWorkerEntrypointNamesMap.get(targetWorkerName);
+				const entrypointNames = workerToWorkerEntrypointNamesMap.get(
+					targetWorkerName as string
+				);
 
 				if (entrypointNames) {
-					entrypointNames.add(value.entrypoint);
+					entrypointNames.add(value.entrypoint as string);
 				}
 			}
 		}
@@ -112,21 +144,27 @@ function getWorkerToDurableObjectClassNamesMap(
 				assert(classNames, missingWorkerErrorMessage(worker.name));
 
 				classNames.add(value);
-			} else if (typeof value === "object") {
-				if ((value as any).scriptName) {
-					const classNames = workerToDurableObjectClassNamesMap.get(
-						value.scriptName
-					);
-					assert(classNames, missingWorkerErrorMessage(value.scriptName));
+			} else if (value !== null && typeof value === "object") {
+				const typedValue = value as DurableObjectValue;
+				if (typeof typedValue === "object" && "className" in typedValue) {
+					if (typedValue.scriptName) {
+						const classNames = workerToDurableObjectClassNamesMap.get(
+							typedValue.scriptName
+						);
+						assert(
+							classNames,
+							missingWorkerErrorMessage(typedValue.scriptName)
+						);
 
-					classNames.add((value as any).className);
-				} else {
-					const classNames = workerToDurableObjectClassNamesMap.get(
-						worker.name
-					);
-					assert(classNames, missingWorkerErrorMessage(worker.name));
+						classNames.add(typedValue.className);
+					} else {
+						const classNames = workerToDurableObjectClassNamesMap.get(
+							worker.name
+						);
+						assert(classNames, missingWorkerErrorMessage(worker.name));
 
-					classNames.add((value as any).className);
+						classNames.add(typedValue.className);
+					}
 				}
 			}
 		}
@@ -144,27 +182,27 @@ function getWorkerToWorkflowEntrypointClassNamesMap(
 
 	for (const worker of workers) {
 		for (const value of Object.values(worker.workflows ?? {})) {
-			if ((value as any).scriptName) {
+			const typedValue = value as WorkflowValue;
+			if (typedValue.scriptName) {
 				const classNames = workerToWorkflowEntrypointClassNamesMap.get(
-					(value as any).scriptName
+					typedValue.scriptName
 				);
-				assert(classNames, missingWorkerErrorMessage((value as any).scriptName));
+				assert(classNames, missingWorkerErrorMessage(typedValue.scriptName));
 
-				classNames.add((value as any).className);
+				classNames.add(typedValue.className);
 			} else {
 				const classNames = workerToWorkflowEntrypointClassNamesMap.get(
 					worker.name
 				);
 				assert(classNames, missingWorkerErrorMessage(worker.name));
 
-				classNames.add((value as any).className);
+				classNames.add(typedValue.className);
 			}
 		}
 	}
 
 	return workerToWorkflowEntrypointClassNamesMap;
 }
-
 
 // We want module names to be their absolute path without the leading slash
 // (i.e. the modules root should be the root directory). On Windows, we need
@@ -235,7 +273,6 @@ const remoteProxySessionsDataMap = new Map<
 	} | null
 >();
 
-
 export async function getDevMiniflareOptions(
 	resolvedPluginConfig: AssetsOnlyResolvedConfig | WorkersResolvedConfig,
 	viteDevServer: vite.ViteDevServer,
@@ -294,7 +331,7 @@ export async function getDevMiniflareOptions(
 				CONFIG: assetsConfig,
 			},
 			serviceBindings: {
-				__VITE_HTML_EXISTS__: async (request) => {
+				__VITE_HTML_EXISTS__: async (request: Request) => {
 					const { pathname } = new URL(request.url);
 
 					if (pathname.endsWith(".html")) {
@@ -329,7 +366,7 @@ export async function getDevMiniflareOptions(
 
 					return MiniflareResponse.json(null);
 				},
-				__VITE_FETCH_HTML__: async (request) => {
+				__VITE_FETCH_HTML__: async (request: Request) => {
 					const { pathname } = new URL(request.url);
 					const { root, publicDir } = resolvedViteConfig;
 					const isInPublicDir = pathname.startsWith(PUBLIC_DIR_PREFIX);
@@ -392,10 +429,11 @@ export async function getDevMiniflareOptions(
 							const configWithContainers = {
 								...workerConfig,
 								assets: undefined,
-								...(containerBuildId && workerConfig.containers?.length && {
-									containerBuildId,
-									enableContainers: true,
-								}),
+								...(containerBuildId &&
+									workerConfig.containers?.length && {
+										containerBuildId,
+										enableContainers: true,
+									}),
 							};
 
 							const miniflareWorkerOptions = unstable_getMiniflareWorkerOptions(
@@ -436,14 +474,14 @@ export async function getDevMiniflareOptions(
 										workerConfig.assets?.binding
 											? {
 													[workerConfig.assets.binding]: {
-														node: (req, res) => {
+														node: (req: any, res: any) => {
 															req[kRequestType] = "asset";
 															viteDevServer.middlewares(req, res);
 														},
 													},
 												}
 											: {}),
-										__VITE_INVOKE_MODULE__: async (request) => {
+										__VITE_INVOKE_MODULE__: async (request: Request) => {
 											const payload =
 												(await request.json()) as vite.CustomPayload;
 											const invokePayloadData = payload.data as {
@@ -507,10 +545,12 @@ export async function getDevMiniflareOptions(
 		inspectorPort: inspectorPort === false ? undefined : inspectorPort,
 		unsafeInspectorProxy: inspectorPort !== false,
 		unsafeDevRegistryPath: getDefaultDevRegistryPath(),
-		handleRuntimeStdio(stdout, stderr) {
+		handleRuntimeStdio(stdout: Uint8Array[], stderr: Uint8Array[]) {
 			const decoder = new TextDecoder();
-			stdout.forEach((data) => logger.info(decoder.decode(data)));
-			stderr.forEach((error) =>
+			stdout.forEach((data: Uint8Array) =>
+				(logger as any).info(decoder.decode(data))
+			);
+			stderr.forEach((error: Uint8Array) =>
 				logger.logWithLevel(LogLevel.ERROR, decoder.decode(error))
 			);
 		},
@@ -594,7 +634,7 @@ export async function getDevMiniflareOptions(
 				} satisfies WorkerOptions;
 			}),
 		],
-		async unsafeModuleFallbackService(request) {
+		async unsafeModuleFallbackService(request: Request) {
 			const url = new URL(request.url);
 			const rawSpecifier = url.searchParams.get("rawSpecifier");
 			assert(
@@ -657,7 +697,7 @@ function getPreviewModules(
 				type: "ESModule",
 				path: entryPath,
 			} as const,
-			...modulesRules.flatMap(({ type, include }) =>
+			...modulesRules.flatMap(({ type, include }: any) =>
 				globSync(include, { cwd: rootPath, ignore: entryPath }).map((path) => ({
 					type,
 					path,
@@ -749,10 +789,12 @@ export async function getPreviewMiniflareOptions(
 		inspectorPort: inspectorPort === false ? undefined : inspectorPort,
 		unsafeInspectorProxy: inspectorPort !== false,
 		unsafeDevRegistryPath: getDefaultDevRegistryPath(),
-		handleRuntimeStdio(stdout, stderr) {
+		handleRuntimeStdio(stdout: Uint8Array[], stderr: Uint8Array[]) {
 			const decoder = new TextDecoder();
-			stdout.forEach((data) => logger.info(decoder.decode(data)));
-			stderr.forEach((error) =>
+			stdout.forEach((data: Uint8Array) =>
+				(logger as any).info(decoder.decode(data))
+			);
+			stderr.forEach((error: Uint8Array) =>
 				logger.logWithLevel(LogLevel.ERROR, decoder.decode(error))
 			);
 		},
@@ -774,7 +816,7 @@ class ViteMiniflareLogger extends Log {
 		this.logger = config.logger;
 	}
 
-	override logWithLevel(level: LogLevel, message: string) {
+	logWithLevel(level: LogLevel, message: string) {
 		switch (level) {
 			case LogLevel.ERROR:
 				return this.logger.error(message);
@@ -785,8 +827,12 @@ class ViteMiniflareLogger extends Log {
 		}
 	}
 
-	override logReady() {
+	logReady() {
 		// Noop so that Miniflare server start messages are not logged
+	}
+
+	info(message: string) {
+		this.logger.info(message);
 	}
 }
 

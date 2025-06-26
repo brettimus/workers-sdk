@@ -28,7 +28,7 @@ export function containerPlugin(
 	resolvedPluginConfig: WorkersResolvedConfig
 ): vite.Plugin {
 	let server: vite.ViteDevServer | undefined;
-	
+
 	// Debounced rebuild function
 	const debounceMs = 300;
 
@@ -43,7 +43,11 @@ export function containerPlugin(
 			// Generate new build ID for hot reload
 			containerState.buildId = generateContainerBuildId();
 
-			server.config.logger.info(colors.dim(`⎔ Container file changed: ${path.relative(server.config.root, filePath)}`));
+			server.config.logger.info(
+				colors.dim(
+					`⎔ Container file changed: ${path.relative(server.config.root, filePath)}`
+				)
+			);
 			server.config.logger.info(colors.dim("⎔ Rebuilding containers..."));
 
 			// Collect all containers again
@@ -64,7 +68,7 @@ export function containerPlugin(
 	return {
 		name: "vite-plugin-cloudflare:containers",
 		enforce: "pre", // Run before the main cloudflare plugin
-		
+
 		configureServer(viteDevServer) {
 			server = viteDevServer;
 		},
@@ -72,7 +76,7 @@ export function containerPlugin(
 		async buildStart() {
 			// Check if any workers have containers configured
 			const hasContainers = Object.values(resolvedPluginConfig.workers).some(
-				worker => worker.containers && worker.containers.length > 0
+				(worker) => worker.containers && worker.containers.length > 0
 			);
 
 			if (!hasContainers) {
@@ -101,7 +105,9 @@ export function containerPlugin(
 			try {
 				validateContainerConfig(allContainers);
 			} catch (error) {
-				this.error(`Container configuration error: ${error instanceof Error ? error.message : error}`);
+				this.error(
+					`Container configuration error: ${error instanceof Error ? error.message : error}`
+				);
 				return;
 			}
 
@@ -120,7 +126,10 @@ export function containerPlugin(
 
 			// Check if the changed file is a Dockerfile or related to container building
 			const changedFilePath = path.resolve(options.file);
-			const isContainerFile = isDockerRelatedFile(changedFilePath, resolvedPluginConfig);
+			const isContainerFile = isDockerRelatedFile(
+				changedFilePath,
+				resolvedPluginConfig
+			);
 
 			if (isContainerFile) {
 				// Trigger container rebuild
@@ -134,18 +143,25 @@ export function containerPlugin(
 			// Clean up containers when the dev server shuts down
 			if (containerState && containerState.imageTagsSeen.size > 0) {
 				try {
-					server?.config.logger.info(colors.dim("⎔ Cleaning up container images..."));
+					server?.config.logger.info(
+						colors.dim("⎔ Cleaning up container images...")
+					);
 					await cleanupContainerImages(containerState.imageTagsSeen);
 				} catch (error) {
 					server?.config.logger.warn(
-						colors.yellow("Failed to clean up container images. You may need to clean them up manually.")
+						colors.yellow(
+							"Failed to clean up container images. You may need to clean them up manually."
+						)
 					);
 				}
 			}
 		},
 	};
 
-	async function buildContainers(containers: ContainerApp[], configRoot?: string) {
+	async function buildContainers(
+		containers: ContainerApp[],
+		configRoot?: string
+	) {
 		if (!containerState || containerState.isBuilding) {
 			return;
 		}
@@ -163,19 +179,19 @@ export function containerPlugin(
 			});
 
 			// Track built image tags for cleanup
-			results.forEach(result => {
+			results.forEach((result) => {
 				if (result.success) {
 					containerState?.imageTagsSeen.add(result.imageTag);
 				}
 			});
 
 			// Check for build failures
-			const failures = results.filter(r => !r.success);
+			const failures = results.filter((r) => !r.success);
 			if (failures.length > 0) {
-				const failureMessages = failures.map(f => 
-					`  - ${f.className}: ${f.error || 'Unknown error'}`
-				).join('\n');
-				
+				const failureMessages = failures
+					.map((f) => `  - ${f.className}: ${f.error || "Unknown error"}`)
+					.join("\n");
+
 				server?.config.logger.error(
 					colors.red(`Container build failed for:\n${failureMessages}`)
 				);
@@ -189,24 +205,32 @@ export function containerPlugin(
 			containerState.lastBuildTime = startTime;
 		} catch (error) {
 			server?.config.logger.error(
-				colors.red(`Container build error: ${error instanceof Error ? error.message : error}`)
+				colors.red(
+					`Container build error: ${error instanceof Error ? error.message : error}`
+				)
 			);
 		} finally {
 			containerState.isBuilding = false;
 		}
 	}
 
-	function isDockerRelatedFile(filePath: string, config: WorkersResolvedConfig): boolean {
+	function isDockerRelatedFile(
+		filePath: string,
+		config: WorkersResolvedConfig
+	): boolean {
 		for (const worker of Object.values(config.workers)) {
 			if (!worker.containers) continue;
 
 			for (const container of worker.containers) {
-				if (!container.image || container.image.startsWith('http')) continue;
+				if (!container.image || container.image.startsWith("http")) continue;
 
 				// Resolve Dockerfile path
 				let dockerfilePath = container.image;
 				if (!path.isAbsolute(dockerfilePath)) {
-					dockerfilePath = path.resolve(server?.config.root || process.cwd(), dockerfilePath);
+					dockerfilePath = path.resolve(
+						server?.config.root || process.cwd(),
+						dockerfilePath
+					);
 				}
 
 				// Check if this is the Dockerfile
@@ -219,7 +243,10 @@ export function containerPlugin(
 				if (!contextPath) {
 					contextPath = path.dirname(dockerfilePath);
 				} else if (!path.isAbsolute(contextPath)) {
-					contextPath = path.resolve(server?.config.root || process.cwd(), contextPath);
+					contextPath = path.resolve(
+						server?.config.root || process.cwd(),
+						contextPath
+					);
 				}
 
 				if (filePath.startsWith(contextPath)) {
@@ -235,7 +262,7 @@ export function containerPlugin(
 						/dist\//,
 					];
 
-					if (!ignoredPatterns.some(pattern => pattern.test(relativePath))) {
+					if (!ignoredPatterns.some((pattern) => pattern.test(relativePath))) {
 						return true;
 					}
 				}

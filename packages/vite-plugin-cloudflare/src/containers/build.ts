@@ -44,7 +44,7 @@ export async function buildContainersForDev(
 	options: ContainerBuildOptions
 ): Promise<ContainerBuildResult[]> {
 	const { containers, buildId, configRoot } = options;
-	
+
 	if (!containers.length) {
 		return [];
 	}
@@ -56,7 +56,7 @@ export async function buildContainersForDev(
 	// Convert vite plugin container config to containers-shared format
 	for (const container of containers) {
 		const imageTag = getDevContainerImageName(container.class_name, buildId);
-		
+
 		containerOptions.push({
 			image: container.image,
 			imageTag,
@@ -75,15 +75,15 @@ export async function buildContainersForDev(
 	try {
 		// Use Wrangler's container building infrastructure
 		await prepareContainerImagesForDev(dockerPath, containerOptions);
-		
+
 		// Mark all as successful
-		results.forEach(result => {
+		results.forEach((result) => {
 			result.success = true;
 		});
 	} catch (error) {
 		// Mark all as failed with the error
 		const errorMessage = error instanceof Error ? error.message : String(error);
-		results.forEach(result => {
+		results.forEach((result) => {
 			result.success = false;
 			result.error = errorMessage;
 		});
@@ -122,30 +122,52 @@ export function validateContainerConfig(containers: ContainerApp[]): void {
 		if (!container.class_name) {
 			throw new Error("Container must specify a class_name");
 		}
-		
+
 		if (!container.image) {
-			throw new Error(`Container for class "${container.class_name}" must specify an image`);
+			throw new Error(
+				`Container for class "${container.class_name}" must specify an image`
+			);
 		}
 
 		// Validate instance_type if provided
-		if (container.instance_type && !["dev", "basic", "standard"].includes(container.instance_type)) {
-			throw new Error(`Invalid instance_type "${container.instance_type}" for container "${container.class_name}". Must be one of: dev, basic, standard`);
+		if (
+			container.instance_type &&
+			!["dev", "basic", "standard"].includes(container.instance_type)
+		) {
+			throw new Error(
+				`Invalid instance_type "${container.instance_type}" for container "${container.class_name}". Must be one of: dev, basic, standard`
+			);
 		}
 
 		// Validate scheduling_policy if provided
-		if (container.scheduling_policy && !["regional", "moon", "default"].includes(container.scheduling_policy)) {
-			throw new Error(`Invalid scheduling_policy "${container.scheduling_policy}" for container "${container.class_name}". Must be one of: regional, moon, default`);
+		if (
+			container.scheduling_policy &&
+			!["regional", "moon", "default"].includes(container.scheduling_policy)
+		) {
+			throw new Error(
+				`Invalid scheduling_policy "${container.scheduling_policy}" for container "${container.class_name}". Must be one of: regional, moon, default`
+			);
 		}
 
 		// Validate rollout_kind if provided
-		if (container.rollout_kind && !["full_auto", "none", "full_manual"].includes(container.rollout_kind)) {
-			throw new Error(`Invalid rollout_kind "${container.rollout_kind}" for container "${container.class_name}". Must be one of: full_auto, none, full_manual`);
+		if (
+			container.rollout_kind &&
+			!["full_auto", "none", "full_manual"].includes(container.rollout_kind)
+		) {
+			throw new Error(
+				`Invalid rollout_kind "${container.rollout_kind}" for container "${container.class_name}". Must be one of: full_auto, none, full_manual`
+			);
 		}
 
 		// Validate rollout_step_percentage if provided
 		if (container.rollout_step_percentage !== undefined) {
-			if (container.rollout_step_percentage < 25 || container.rollout_step_percentage > 100) {
-				throw new Error(`Invalid rollout_step_percentage "${container.rollout_step_percentage}" for container "${container.class_name}". Must be between 25 and 100`);
+			if (
+				container.rollout_step_percentage < 25 ||
+				container.rollout_step_percentage > 100
+			) {
+				throw new Error(
+					`Invalid rollout_step_percentage "${container.rollout_step_percentage}" for container "${container.class_name}". Must be between 25 and 100`
+				);
 			}
 		}
 	}
@@ -158,7 +180,7 @@ export function getContainerOptionsForMiniflare(
 	containers: ContainerApp[],
 	buildId: string
 ): Array<{ className: string; imageName: string }> {
-	return containers.map(container => ({
+	return containers.map((container) => ({
 		className: container.class_name,
 		imageName: getDevContainerImageName(container.class_name, buildId),
 	}));

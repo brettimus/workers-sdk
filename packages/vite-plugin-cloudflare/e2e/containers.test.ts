@@ -104,7 +104,7 @@ describe("containers e2e tests", () => {
 					// Container might take time to start, so we test with retries
 					let attempts = 0;
 					let success = false;
-					
+
 					while (attempts < 10 && !success) {
 						try {
 							const response = await fetchJson(url + "/api/health");
@@ -114,7 +114,7 @@ describe("containers e2e tests", () => {
 							attempts++;
 							if (attempts < 10) {
 								// Wait 2 seconds before retry
-								await new Promise(resolve => setTimeout(resolve, 2000));
+								await new Promise((resolve) => setTimeout(resolve, 2000));
 							}
 						}
 					}
@@ -138,7 +138,7 @@ describe("containers e2e tests", () => {
 					// Container endpoint should return service unavailable
 					const apiResponse = await fetch(url + "/api/");
 					expect(apiResponse.status).toBe(503);
-					
+
 					const text = await apiResponse.text();
 					expect(text).toContain("Container not available");
 				}

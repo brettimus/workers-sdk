@@ -1,16 +1,20 @@
-import { describe, expect, test, vi, beforeEach } from "vitest";
+// Import mocked functions
+import { prepareContainerImagesForDev } from "@cloudflare/containers-shared";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
 	buildContainersForDev,
 	generateContainerBuildId,
-	validateContainerConfig,
 	getContainerOptionsForMiniflare,
-	type ContainerApp,
+	validateContainerConfig,
 } from "../../containers/build";
+import type { ContainerApp } from "../../containers/build";
 
 // Mock the containers-shared dependency
 vi.mock("@cloudflare/containers-shared", () => ({
 	prepareContainerImagesForDev: vi.fn(),
-	getDevContainerImageName: vi.fn((className, buildId) => `cloudflare-dev/${className}:${buildId}`),
+	getDevContainerImageName: vi.fn(
+		(className, buildId) => `cloudflare-dev/${className}:${buildId}`
+	),
 	cleanupContainers: vi.fn(),
 }));
 
@@ -18,9 +22,6 @@ vi.mock("@cloudflare/containers-shared", () => ({
 vi.mock("wrangler/environment-variables/misc-variables", () => ({
 	getDockerPath: vi.fn(() => "docker"),
 }));
-
-// Import mocked functions
-import { prepareContainerImagesForDev } from "@cloudflare/containers-shared";
 
 describe("containers/build", () => {
 	beforeEach(() => {
@@ -156,16 +157,17 @@ describe("containers/build", () => {
 	describe("generateContainerBuildId", () => {
 		test("should generate a valid UUID", () => {
 			const buildId = generateContainerBuildId();
-			
+
 			// UUID v4 format validation
-			const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+			const uuidRegex =
+				/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 			expect(buildId).toMatch(uuidRegex);
 		});
 
 		test("should generate unique IDs", () => {
 			const id1 = generateContainerBuildId();
 			const id2 = generateContainerBuildId();
-			
+
 			expect(id1).not.toBe(id2);
 		});
 	});
@@ -178,7 +180,7 @@ describe("containers/build", () => {
 					image: "./Dockerfile1",
 				},
 				{
-					class_name: "Container2", 
+					class_name: "Container2",
 					image: "./Dockerfile2",
 				},
 			];
@@ -205,7 +207,6 @@ describe("containers/build", () => {
 	});
 
 	describe("buildContainersForDev", () => {
-
 		test("should build containers successfully", async () => {
 			vi.mocked(prepareContainerImagesForDev).mockResolvedValue(undefined);
 
@@ -299,18 +300,21 @@ describe("containers/build", () => {
 				configRoot: "/test/root",
 			});
 
-			expect(prepareContainerImagesForDev).toHaveBeenCalledWith("/custom/docker", [
-				{
-					image: "./Dockerfile",
-					imageTag: "cloudflare-dev/TestContainer:test-build-id",
-					args: {
-						NODE_ENV: "development",
-						API_KEY: "test-key",
+			expect(prepareContainerImagesForDev).toHaveBeenCalledWith(
+				"/custom/docker",
+				[
+					{
+						image: "./Dockerfile",
+						imageTag: "cloudflare-dev/TestContainer:test-build-id",
+						args: {
+							NODE_ENV: "development",
+							API_KEY: "test-key",
+						},
+						imageBuildContext: "./context",
+						class_name: "TestContainer",
 					},
-					imageBuildContext: "./context",
-					class_name: "TestContainer",
-				},
-			]);
+				]
+			);
 		});
 	});
 });

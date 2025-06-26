@@ -30,21 +30,21 @@ The container is configured in `wrangler.jsonc`:
 
 ```json
 {
-  "containers": [
-    {
-      "image": "./api/Dockerfile",
-      "class_name": "ApiContainer", 
-      "instance_type": "dev"
-    }
-  ],
-  "durable_objects": {
-    "bindings": [
-      {
-        "class_name": "ApiContainer",
-        "name": "API_CONTAINER"
-      }
-    ]
-  }
+	"containers": [
+		{
+			"image": "./api/Dockerfile",
+			"class_name": "ApiContainer",
+			"instance_type": "dev"
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"class_name": "ApiContainer",
+				"name": "API_CONTAINER"
+			}
+		]
+	}
 }
 ```
 
