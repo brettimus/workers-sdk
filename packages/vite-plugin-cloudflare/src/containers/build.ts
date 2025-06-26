@@ -6,8 +6,9 @@ import {
 	getDevContainerImageName,
 	prepareContainerImagesForDev,
 } from "@cloudflare/containers-shared";
-import { getDockerPath } from "wrangler/environment-variables/misc-variables";
+import { getDockerPath } from "../wrangler-internals";
 import type { ContainerDevOptions } from "@cloudflare/containers-shared";
+import type { ResolvedConfig } from "vite";
 
 // Container configuration as defined in Wrangler
 export interface ContainerApp {

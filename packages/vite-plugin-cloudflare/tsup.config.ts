@@ -8,6 +8,7 @@ export default defineConfig([
 		dts: true,
 		outDir: "dist",
 		tsconfig: "tsconfig.plugin.json",
+		noExternal: ["@cloudflare/containers-shared"],
 	},
 	{
 		entry: [
@@ -30,7 +31,7 @@ export default defineConfig([
 		platform: "neutral",
 		outDir: "dist/runner-worker",
 		external: ["cloudflare:workers"],
-		noExternal: ["vite/module-runner"],
+		noExternal: ["vite/module-runner", "@cloudflare/containers-shared"],
 		tsconfig: "tsconfig.worker.json",
 	},
 ]);
